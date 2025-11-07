@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from "firebase/auth";
 import { subscribeToMonthData, saveMonthData, getMonthData, isFirebaseConfigured } from '../services/firebaseService';
-import { MonthData, FinancialItem, Goal, BankAccount } from '../types';
+import { MonthData, FinancialItem, Goal, BankAccount, Expense } from '../types';
 import { initialMonthData, CORRECT_DATA_VERSION } from '../constants';
 
 type ItemType = 'income' | 'expense' | 'shopping' | 'avulso' | 'goal' | 'account';
@@ -62,7 +62,6 @@ export const useFinancialData = (user: User | null, currentDate: Date) => {
                 prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
                 const prevMonthKey = `${prevMonthDate.getFullYear()}-${(prevMonthDate.getMonth() + 1).toString().padStart(2, '0')}`;
                 
-                // Use initialMonthData as a fallback if previous month also doesn't exist.
                 const prevMonthData = await getMonthData(user.uid, prevMonthKey) || initialMonthData;
 
                 const newMonthData: MonthData = {
@@ -70,15 +69,25 @@ export const useFinancialData = (user: User | null, currentDate: Date) => {
                     incomes: [],
                     expenses: prevMonthData.expenses
                         .filter(exp => exp.cyclic)
-                        .map(exp => {
-                            const newDueDate = new Date(exp.dueDate || Date.now());
-                            newDueDate.setMonth(newDueDate.getMonth() + 1);
+                        .map((exp: Expense) => {
+                            if (!exp.dueDate) {
+                                return { ...exp, id: `exp_${Date.now()}_${Math.random()}`, paid: false, paidDate: null };
+                            }
+                             const [year, month, day] = exp.dueDate.split('-').map(Number);
+                            const nextDate = new Date(Date.UTC(year, month - 1, day));
+                            
+                            nextDate.setUTCMonth(nextDate.getUTCMonth() + 1);
+
+                            if (nextDate.getUTCDate() !== day) {
+                                nextDate.setUTCDate(0);
+                            }
+
                             return {
                                 ...exp,
                                 id: `exp_${Date.now()}_${Math.random()}`,
                                 paid: false,
                                 paidDate: null,
-                                dueDate: newDueDate.toISOString().split('T')[0],
+                                dueDate: nextDate.toISOString().slice(0, 10),
                                 current: (exp.current || 0) < (exp.total || Infinity) ? (exp.current || 0) + 1 : exp.current
                             };
                         }),
