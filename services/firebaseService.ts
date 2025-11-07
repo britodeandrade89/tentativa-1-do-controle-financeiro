@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCl-W2_kAdpoice9Tdc6psSpJBwYDvQqoQ",
   authDomain: "financas-bispo-brito.firebaseapp.com",
   projectId: "financas-bispo-brito",
-  storageBucket: "financas-bispo-brito.appspot.com",
+  storageBucket: "financas-bispo-brito.firebasestorage.app",
   messagingSenderId: "159834229207",
   appId: "1:159834229207:web:290d078ad03c2e025be392"
 };

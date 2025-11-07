@@ -90,9 +90,13 @@ export default function App() {
             const prevMonthData = await getMonthData(user.uid, prevMonthKey) || initialMonthData;
 
             const newMonthData: MonthData = {
-                ...initialMonthData,
-                bankAccounts: prevMonthData.bankAccounts.map(acc => ({...acc})),
-                goals: prevMonthData.goals.map(goal => ({...goal})),
+                dataVersion: CORRECT_DATA_VERSION,
+                incomes: [
+                    { id: `inc_salario_marcelly_${Date.now()}`, description: 'SALARIO MARCELLY', amount: 3349.92, paid: false },
+                    { id: `inc_salario_andre_${Date.now()}`, description: 'SALARIO ANDRE', amount: 3349.92, paid: false },
+                    { id: `inc_mumbuca_marcelly_${Date.now()}`, description: 'MUMBUCA MARCELLY', amount: 650.00, paid: false },
+                    { id: `inc_mumbuca_andre_${Date.now()}`, description: 'MUMBUCA ANDRE', amount: 650.00, paid: false }
+                ],
                 expenses: prevMonthData.expenses
                     .filter(exp => exp.cyclic)
                     .map(exp => {
@@ -107,7 +111,10 @@ export default function App() {
                             current: (exp.current || 0) < (exp.total || Infinity) ? (exp.current || 0) + 1 : exp.current
                         };
                     }),
-                dataVersion: CORRECT_DATA_VERSION,
+                shoppingItems: [],
+                avulsosItems: [],
+                bankAccounts: prevMonthData.bankAccounts.map(acc => ({...acc})),
+                goals: prevMonthData.goals.map(goal => ({...goal})),
             };
             await handleSetMonthData(newMonthData);
         }
@@ -115,7 +122,7 @@ export default function App() {
     });
 
     return () => dataUnsubscribe();
-  }, [user, monthKey, handleSetMonthData, currentDate]);
+  }, [user, monthKey, currentDate, handleSetMonthData]);
 
   const changeMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prevDate => {
@@ -260,7 +267,7 @@ const HomeView: React.FC<HomeViewProps> = ({ data }) => {
             <SummaryCard 
                 title="Entrada Salário"
                 value={totals.salaryIncome}
-                progress={(totals.salarySpent / totals.salaryIncome) * 100}
+                progress={totals.salaryIncome > 0 ? (totals.salarySpent / totals.salaryIncome) * 100 : 0}
                 details={`${formatCurrency(totals.salarySpent)} gastos de ${formatCurrency(totals.salaryIncome)}`}
                 color="text-success"
                 progressColor="bg-success"
@@ -268,7 +275,7 @@ const HomeView: React.FC<HomeViewProps> = ({ data }) => {
              <SummaryCard 
                 title="Entrada Mumbuca"
                 value={totals.mumbucaIncome}
-                progress={(totals.mumbucaSpent / totals.mumbucaIncome) * 100}
+                progress={totals.mumbucaIncome > 0 ? (totals.mumbucaSpent / totals.mumbucaIncome) * 100 : 0}
                 details={`${formatCurrency(totals.mumbucaSpent)} gastos de ${formatCurrency(totals.mumbucaIncome)}`}
                 color="text-mumbuca"
                 progressColor="bg-mumbuca"
@@ -276,7 +283,7 @@ const HomeView: React.FC<HomeViewProps> = ({ data }) => {
             <SummaryCard 
                 title="Dívidas do Mês"
                 value={totals.totalExpenses}
-                progress={(totals.paidExpenses / totals.totalExpenses) * 100}
+                progress={totals.totalExpenses > 0 ? (totals.paidExpenses / totals.totalExpenses) * 100 : 0}
                 details={`${formatCurrency(totals.paidExpenses)} pagos de ${formatCurrency(totals.totalExpenses)}`}
                 color="text-danger"
                 progressColor="bg-danger"

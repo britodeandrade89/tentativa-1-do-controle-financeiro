@@ -4,12 +4,7 @@ import { MonthData } from '../types';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-let ai: GoogleGenAI | null = null;
-if (process.env.API_KEY) {
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-} else {
-    console.warn("API_KEY environment variable not set. Gemini AI features will be disabled.");
-}
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const generateFinancialContext = (monthData: MonthData, monthName: string, year: number): string => {
     const totalIncome = monthData.incomes.reduce((sum, item) => sum + item.amount, 0);
@@ -44,7 +39,7 @@ export const generateFinancialAnalysis = async (
     prompt: string
 ): Promise<string> => {
     if (!ai) {
-        return "O serviço de IA não está configurado. Verifique a chave de API.";
+        return "O serviço de IA não está configurado. A chave de API não foi encontrada.";
     }
 
     const financialContext = generateFinancialContext(monthData, monthName, year);
