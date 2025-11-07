@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { MonthData } from '../types';
 import { formatCurrency } from '../utils';
@@ -98,24 +99,42 @@ interface HomeViewProps {
 }
 export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
     const totals = useMemo(() => {
+        // --- INCOMES ---
         const totalIncome = data.incomes.reduce((sum, item) => sum + item.amount, 0);
         const salaryIncome = data.incomes.filter(i => i.description.toLowerCase().includes('salario')).reduce((sum, item) => sum + item.amount, 0);
         const mumbucaIncome = data.incomes.filter(i => i.description.toLowerCase().includes('mumbuca')).reduce((sum, item) => sum + item.amount, 0);
         
-        const allExpensesList = [...data.expenses, ...data.shoppingItems, ...data.avulsosItems];
-        const totalExpenses = allExpensesList.reduce((sum, item) => sum + item.amount, 0);
-        const paidExpenses = allExpensesList.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
-
-        const salarySpent = data.expenses.reduce((sum, item) => sum + item.amount, 0) + data.avulsosItems.reduce((sum, item) => sum + item.amount, 0);
+        // --- EXPENSES (by type) ---
+        const monthlyExpensesTotal = data.expenses.reduce((sum, item) => sum + item.amount, 0);
+        const avulsosTotal = data.avulsosItems.reduce((sum, item) => sum + item.amount, 0);
         const mumbucaSpent = data.shoppingItems.reduce((sum, item) => sum + item.amount, 0);
+        
+        // --- PAID EXPENSES (for progress bars) ---
+        const paidMonthlyExpenses = data.expenses.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
+        
+        // --- SPENT LOGIC (for card details) ---
+        const allSpending = monthlyExpensesTotal + avulsosTotal + mumbucaSpent;
+        
+        // --- BALANCE & DEBT LOGIC ---
+        // As per screenshot's hint: Salário - Dívidas - Avulsos
+        const finalBalance = salaryIncome - monthlyExpensesTotal - avulsosTotal;
 
-        const finalBalance = salaryIncome - salarySpent;
-
+        // "Total a pagar" should only include unpaid debts
         const totalToPayMarcia = data.expenses
-            .filter(e => e.description.toLowerCase().includes('marcia brito'))
+            .filter(e => !e.paid && e.description.toLowerCase().includes('marcia brito'))
             .reduce((sum, item) => sum + item.amount, 0);
         
-        return { totalIncome, salaryIncome, mumbucaIncome, totalExpenses, paidExpenses, salarySpent, mumbucaSpent, finalBalance, totalToPayMarcia };
+        return { 
+            totalIncome, 
+            salaryIncome, 
+            mumbucaIncome, 
+            monthlyExpensesTotal, 
+            paidMonthlyExpenses,
+            mumbucaSpent, 
+            allSpending,
+            finalBalance, 
+            totalToPayMarcia 
+        };
     }, [data]);
     
      const categoryTotals = useMemo(() => {
@@ -133,16 +152,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
                  <SummaryCard 
                     title="Entrada Total"
                     value={totals.totalIncome}
-                    progress={(totals.totalIncome > 0 ? (totals.salarySpent / totals.totalIncome) * 100 : 0)}
-                    details={`${formatCurrency(totals.salarySpent)} gastos de ${formatCurrency(totals.totalIncome)}`}
+                    progress={(totals.totalIncome > 0 ? (totals.allSpending / totals.totalIncome) * 100 : 0)}
+                    details={`${formatCurrency(totals.allSpending)} gastos de ${formatCurrency(totals.totalIncome)}`}
                     color="text-text-main"
                     progressColor="bg-text-lighter"
                 />
                  <SummaryCard 
                     title="Entrada Salário"
                     value={totals.salaryIncome}
-                    progress={(totals.salaryIncome > 0 ? (totals.salarySpent / totals.salaryIncome) * 100 : 0)}
-                    details={`${formatCurrency(totals.salarySpent)} gastos de ${formatCurrency(totals.salaryIncome)}`}
+                    progress={(totals.salaryIncome > 0 ? ((totals.monthlyExpensesTotal + totals.avulsosTotal) / totals.salaryIncome) * 100 : 0)}
+                    details={`${formatCurrency(totals.monthlyExpensesTotal)} gastos de ${formatCurrency(totals.salaryIncome)}`}
                     color="text-success"
                     progressColor="bg-success"
                 />
@@ -156,11 +175,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
                 />
                 <SummaryCard 
                     title="Dívidas do Mês"
-                    value={totals.totalExpenses}
-                    // Fix: Accessed 'paidExpenses' from the 'totals' object.
-                    progress={totals.totalExpenses > 0 ? (totals.paidExpenses / totals.totalExpenses) * 100 : 0}
-                    // Fix: Accessed 'paidExpenses' from the 'totals' object.
-                    details={`${formatCurrency(totals.paidExpenses)} pagos de ${formatCurrency(totals.totalExpenses)}`}
+                    value={totals.monthlyExpensesTotal}
+                    progress={totals.monthlyExpensesTotal > 0 ? (totals.paidMonthlyExpenses / totals.monthlyExpensesTotal) * 100 : 0}
+                    details={`${formatCurrency(totals.paidMonthlyExpenses)} pagos de ${formatCurrency(totals.monthlyExpensesTotal)}`}
                     color="text-danger"
                     progressColor="bg-primary"
                 />
