@@ -1,0 +1,5 @@
+{
+  "name": "Finanças AI - Controle Financeiro",
+  "description": "Um aplicativo de gerenciamento financeiro pessoal moderno e inteligente, com backup na nuvem em tempo real via Firebase e análise de IA com a tecnologia Gemini para insights sobre seus gastos.",
+  "requestFramePermissions": []
+}
