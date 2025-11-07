@@ -46,12 +46,10 @@ export const generateFinancialAnalysis = async (
     const fullPrompt = `${financialContext}\n\n**Pergunta do usuário:** ${prompt}`;
 
     try {
+        // Fix: Simplified the 'contents' property to pass the prompt as a string, adhering to @google/genai guidelines for single-turn content generation.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: [{
-                role: 'user', 
-                parts: [{ text: fullPrompt }]
-            }],
+            contents: fullPrompt,
             config: {
                 systemInstruction: "Você é um assistente financeiro amigável e prestativo para um aplicativo de finanças pessoais. Seu nome é 'Finanças AI'. Analise os dados fornecidos e responda às perguntas do usuário de forma clara, concisa e com dicas úteis. Use formatação markdown simples, como **negrito**, para destacar pontos importantes. Não use cabeçalhos (#). Seja sempre positivo e encorajador.",
             }

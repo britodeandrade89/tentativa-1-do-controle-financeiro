@@ -2,44 +2,29 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from "firebase/auth";
 import { handleAuth, isFirebaseConfigured, subscribeToMonthData, saveMonthData, getMonthData } from './services/firebaseService';
-import { generateFinancialAnalysis } from './services/geminiService';
-import { MonthData, ModalState, FinancialItem, Expense } from './types';
-import { initialMonthData, CORRECT_DATA_VERSION, SPENDING_CATEGORIES } from './constants';
+import { MonthData, ModalState, FinancialItem, Expense, Income, ShoppingItem, AvulsoItem, Goal, BankAccount } from './types';
+import { initialMonthData, CORRECT_DATA_VERSION } from './constants';
+import { Header } from './components/Header';
+import { TabBar } from './components/TabBar';
+import { HomeView } from './components/HomeView';
+import { TransactionsView } from './components/TransactionsView';
+import { GoalsView } from './components/GoalsView';
+import { ProfileView } from './components/ProfileView';
+import { FinancialItemModal } from './components/FinancialItemModal';
+import { AIChatModal } from './components/AIChatModal';
 
-// --- UTILITY FUNCTIONS ---
-const formatCurrency = (value: number | undefined) => {
-    if (typeof value !== 'number' || isNaN(value)) value = 0;
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+// --- SVG ICONS ---
+const Icons = {
+    CloudSyncing: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg>,
+    CloudError: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
 };
 
+// --- UTILITY FUNCTIONS ---
 const getMonthName = (month: number) => {
     const d = new Date();
     d.setMonth(month - 1);
     return d.toLocaleString('pt-BR', { month: 'long' });
 }
-
-// --- SVG ICONS ---
-const Icons = {
-    Logo: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>,
-    Home: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
-    Transactions: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
-    Goals: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12"cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>,
-    AI: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3c-1.2 0-2.4.6-3 1.7A3.6 3.6 0 0 0 8.3 9c.5 1.1 1.4 2 2.7 2s2.2-.9 2.7-2c.1-.4.2-.8.3-1.3.6-1.1 0-2.3-1-3.1-.3-.2-.6-.3-1-.3z"></path><path d="M12 21c-1.2 0-2.4-.6-3-1.7A3.6 3.6 0 0 1 8.3 15c.5-1.1 1.4-2 2.7-2s2.2.9 2.7 2c.1.4.2.8.3 1.3.6 1.1 0 2.3-1 3.1-.3-.2-.6-.3-1 .3z"></path><path d="M3 12c0-1.2.6-2.4 1.7-3A3.6 3.6 0 0 1 9 8.3c1.1.5 2 1.4 2 2.7s-.9 2.2-2 2.7c-.4.1-.8.2-1.3.3-1.1.6-2.3 0-3.1-1 .2-.3-.3-.6-.3-1z"></path><path d="M21 12c0-1.2-.6-2.4-1.7-3A3.6 3.6 0 0 0 15 8.3c-1.1.5-2 1.4-2 2.7s.9 2.2 2 2.7c.4.1.8.2 1.3.3 1.1.6 2.3 0-3.1-1 .2-.3.3-.6-.3-1z"></path></svg>,
-    Profile: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
-    ChevronLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>,
-    ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
-    Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
-    Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>,
-    Delete: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
-    Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
-    Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>,
-    Close: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
-    Send: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>,
-    CloudSynced: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><path d="M17.5 22a5.3 5.3 0 0 0 4.2-2.1"/><path d="M17.5 22a5.3 5.3 0 0 1-4.2-2.1"/><path d="m15 16.5-3-3-1.5 1.5"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg>,
-    CloudSyncing: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg>,
-    CloudError: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
-};
-
 
 // --- App Component ---
 export default function App() {
@@ -53,15 +38,22 @@ export default function App() {
 
   const monthKey = useMemo(() => `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`, [currentDate]);
 
-  const handleSetMonthData = useCallback(async (data: MonthData) => {
-    setMonthData(data);
-    if(user) {
+  // --- Core Data Handling ---
+  const updateAndSaveChanges = useCallback(async (newData: MonthData) => {
+    setMonthData(newData); // Optimistic UI update
+    if (user && isFirebaseConfigured) {
         setSyncStatus('syncing');
-        await saveMonthData(user.uid, monthKey, data);
-        setSyncStatus('synced');
+        try {
+            await saveMonthData(user.uid, monthKey, newData);
+            setSyncStatus('synced');
+        } catch (error) {
+            console.error("Failed to save changes:", error);
+            setSyncStatus('error');
+        }
     }
   }, [user, monthKey]);
 
+  // --- Auth & Data Subscription ---
   useEffect(() => {
     const authUnsubscribe = handleAuth(newUser => {
       setUser(newUser);
@@ -73,7 +65,7 @@ export default function App() {
     });
     return () => authUnsubscribe();
   }, []);
-
+  
   useEffect(() => {
     if (!user) return;
     
@@ -91,12 +83,7 @@ export default function App() {
 
             const newMonthData: MonthData = {
                 dataVersion: CORRECT_DATA_VERSION,
-                incomes: [
-                    { id: `inc_salario_marcelly_${Date.now()}`, description: 'SALARIO MARCELLY', amount: 3349.92, paid: false },
-                    { id: `inc_salario_andre_${Date.now()}`, description: 'SALARIO ANDRE', amount: 3349.92, paid: false },
-                    { id: `inc_mumbuca_marcelly_${Date.now()}`, description: 'MUMBUCA MARCELLY', amount: 650.00, paid: false },
-                    { id: `inc_mumbuca_andre_${Date.now()}`, description: 'MUMBUCA ANDRE', amount: 650.00, paid: false }
-                ],
+                incomes: [],
                 expenses: prevMonthData.expenses
                     .filter(exp => exp.cyclic)
                     .map(exp => {
@@ -116,14 +103,16 @@ export default function App() {
                 bankAccounts: prevMonthData.bankAccounts.map(acc => ({...acc})),
                 goals: prevMonthData.goals.map(goal => ({...goal})),
             };
-            await handleSetMonthData(newMonthData);
+            await updateAndSaveChanges(newMonthData);
         }
         setIsDataLoading(false);
     });
 
     return () => dataUnsubscribe();
-  }, [user, monthKey, currentDate, handleSetMonthData]);
+  }, [user, monthKey, currentDate, updateAndSaveChanges]);
 
+
+  // --- Event Handlers ---
   const changeMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prevDate => {
       const newDate = new Date(prevDate);
@@ -132,6 +121,72 @@ export default function App() {
     });
   };
 
+  const handleModalOpen = (type: ModalState['type'], data?: any) => {
+    setModalState({ isOpen: true, type, data });
+  };
+  const handleModalClose = () => {
+    setModalState({ isOpen: false, type: null, data: undefined });
+  };
+
+  const getListKeyForItemType = (itemType: 'income' | 'expense' | 'shopping' | 'avulso' | 'goal' | 'account'): keyof MonthData | null => {
+      switch (itemType) {
+          case 'income': return 'incomes';
+          case 'expense': return 'expenses';
+          case 'shopping': return 'shoppingItems';
+          case 'avulso': return 'avulsosItems';
+          case 'goal': return 'goals';
+          case 'account': return 'bankAccounts';
+          default: return null;
+      }
+  }
+
+  const handleAddItem = (item: Omit<FinancialItem | Goal | BankAccount, 'id'>, itemType: 'income' | 'expense' | 'shopping' | 'avulso' | 'goal' | 'account') => {
+      if (!monthData) return;
+      const listKey = getListKeyForItemType(itemType);
+      if (!listKey) return;
+
+      const newItem = { ...item, id: `${itemType}_${Date.now()}` };
+      const newList = [...(monthData[listKey] as any[]), newItem];
+      
+      updateAndSaveChanges({ ...monthData, [listKey]: newList });
+      handleModalClose();
+  };
+
+  const handleUpdateItem = (item: FinancialItem | Goal | BankAccount, itemType: 'income' | 'expense' | 'shopping' | 'avulso' | 'goal' | 'account') => {
+      if (!monthData) return;
+      const listKey = getListKeyForItemType(itemType);
+      if (!listKey) return;
+
+      const list = monthData[listKey] as any[];
+      const itemIndex = list.findIndex(i => i.id === item.id);
+      if (itemIndex === -1) return;
+
+      const newList = [...list];
+      newList[itemIndex] = item;
+
+      updateAndSaveChanges({ ...monthData, [listKey]: newList });
+      handleModalClose();
+  };
+
+  const handleDeleteItem = (itemId: string, itemType: 'income' | 'expense' | 'shopping' | 'avulso' | 'goal' | 'account') => {
+      if (!monthData || !window.confirm("Tem certeza que deseja excluir este item?")) return;
+      const listKey = getListKeyForItemType(itemType);
+      if (!listKey) return;
+      
+      const newList = (monthData[listKey] as any[]).filter(item => item.id !== itemId);
+      updateAndSaveChanges({ ...monthData, [listKey]: newList });
+  };
+
+  const handleTogglePaid = (item: FinancialItem, itemType: 'income' | 'expense' | 'shopping' | 'avulso') => {
+      const updatedItem = { 
+        ...item, 
+        paid: !item.paid,
+        ...((itemType !== 'income') && { paidDate: !item.paid ? new Date().toISOString().split('T')[0] : null })
+      };
+      handleUpdateItem(updatedItem, itemType);
+  }
+
+  // --- Render Logic ---
   if (isDataLoading) {
     return (
         <div className="flex items-center justify-center h-screen bg-background">
@@ -153,9 +208,41 @@ export default function App() {
         </div>
     );
   }
+  
+  const renderView = () => {
+      switch (activeView) {
+          case 'home':
+              return <HomeView data={monthData} />;
+          case 'transactions':
+              return <TransactionsView 
+                data={monthData} 
+                onAddItem={handleModalOpen}
+                onEditItem={(item, type) => handleModalOpen('edit-item', { item, type })}
+                onDeleteItem={handleDeleteItem}
+                onTogglePaid={handleTogglePaid}
+              />;
+          case 'goals':
+              return <GoalsView 
+                data={monthData}
+                onAddGoal={() => handleModalOpen('add-goal')}
+                onEditGoal={(goal) => handleModalOpen('edit-goal', goal)}
+                onDeleteGoal={(id) => handleDeleteItem(id, 'goal')}
+              />;
+          case 'profile':
+              return <ProfileView 
+                data={monthData}
+                user={user}
+                onAddAccount={() => handleModalOpen('add-account')}
+                onEditAccount={(acc) => handleModalOpen('edit-account', acc)}
+                onDeleteAccount={(id) => handleDeleteItem(id, 'account')}
+              />;
+          default:
+              return <HomeView data={monthData} />;
+      }
+  }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background font-sans">
+    <div className="h-screen w-screen flex flex-col bg-background font-sans overflow-hidden">
       <Header 
         monthName={getMonthName(currentDate.getMonth() + 1)}
         year={currentDate.getFullYear()}
@@ -163,163 +250,33 @@ export default function App() {
         onNextMonth={() => changeMonth('next')}
         syncStatus={syncStatus}
       />
-      <main className="flex-grow overflow-y-auto p-4 pb-24 md:p-8">
-        {activeView === 'home' && <HomeView data={monthData} />}
-        {activeView === 'transactions' && <p>Transactions View</p>}
-        {activeView === 'goals' && <p>Goals View</p>}
-        {activeView === 'profile' && <p>Profile View</p>}
+      <main className="flex-grow overflow-y-auto p-4 pb-24 md:p-6 lg:p-8">
+        {renderView()}
       </main>
-      <TabBar activeView={activeView} setActiveView={setActiveView} />
+      <TabBar 
+        activeView={activeView} 
+        setActiveView={setActiveView} 
+        onTabClick={(view) => view === 'ai' ? handleModalOpen('ai-chat') : setActiveView(view)}
+      />
+
+      {modalState.isOpen && modalState.type === 'ai-chat' && (
+        <AIChatModal
+          isOpen={true}
+          onClose={handleModalClose}
+          monthData={monthData}
+          monthName={getMonthName(currentDate.getMonth() + 1)}
+          year={currentDate.getFullYear()}
+        />
+      )}
+      
+      {modalState.isOpen && modalState.type !== 'ai-chat' && (
+        <FinancialItemModal
+          modalState={modalState}
+          onClose={handleModalClose}
+          onAddItem={handleAddItem}
+          onUpdateItem={handleUpdateItem}
+        />
+      )}
     </div>
   );
 }
-
-// --- HEADER COMPONENT ---
-interface HeaderProps {
-    monthName: string;
-    year: number;
-    onPrevMonth: () => void;
-    onNextMonth: () => void;
-    syncStatus: 'synced' | 'syncing' | 'error' | 'disconnected';
-}
-const Header: React.FC<HeaderProps> = ({ monthName, year, onPrevMonth, onNextMonth, syncStatus }) => {
-    const SyncIcon = {
-        synced: <Icons.CloudSynced />,
-        syncing: <Icons.CloudSyncing />,
-        error: <Icons.CloudError />,
-        disconnected: <Icons.CloudError />,
-    }[syncStatus];
-    
-    return (
-        <header className="flex-shrink-0 bg-surface border-b border-border flex justify-between items-center p-4">
-            <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-primary-light to-primary rounded-xl p-2 text-white">
-                    <Icons.Logo />
-                </div>
-                <h1 className="hidden md:block text-lg font-bold text-text-main">Finanças AI</h1>
-            </div>
-            <div className="flex items-center gap-2 md:gap-4">
-                <div className="flex items-center gap-1 bg-background border border-border rounded-xl p-1">
-                    <button onClick={onPrevMonth} className="p-2 rounded-lg hover:bg-surface-light transition-colors text-text-light hover:text-text-main"><Icons.ChevronLeft /></button>
-                    <div className="font-semibold text-text-main text-center w-32 md:w-40">{monthName} {year}</div>
-                    <button onClick={onNextMonth} className="p-2 rounded-lg hover:bg-surface-light transition-colors text-text-light hover:text-text-main"><Icons.ChevronRight /></button>
-                </div>
-                <div className="p-2">{SyncIcon}</div>
-            </div>
-        </header>
-    );
-};
-
-// --- TABBAR COMPONENT ---
-interface TabBarProps {
-    activeView: string;
-    setActiveView: (view: string) => void;
-}
-const TabBar: React.FC<TabBarProps> = ({ activeView, setActiveView }) => {
-    const tabs = [
-        { id: 'home', icon: <Icons.Home />, label: 'Início' },
-        { id: 'transactions', icon: <Icons.Transactions />, label: 'Lançamentos' },
-        { id: 'goals', icon: <Icons.Goals />, label: 'Metas' },
-        { id: 'ai', icon: <Icons.AI />, label: 'Análise AI' },
-        { id: 'profile', icon: <Icons.Profile />, label: 'Perfil' },
-    ];
-    return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border h-20 flex justify-around items-center px-2 pb-[env(safe-area-inset-bottom)]">
-            {tabs.map(tab => (
-                <button 
-                    key={tab.id}
-                    onClick={() => setActiveView(tab.id)}
-                    className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${activeView === tab.id ? 'text-primary' : 'text-text-light hover:text-text-main'}`}
-                >
-                    <div className={`transition-transform ${activeView === tab.id ? 'scale-110' : ''}`}>{tab.icon}</div>
-                    <span className="text-xs font-medium">{tab.label}</span>
-                </button>
-            ))}
-        </nav>
-    );
-};
-
-
-// --- HOME VIEW ---
-interface HomeViewProps {
-    data: MonthData;
-}
-const HomeView: React.FC<HomeViewProps> = ({ data }) => {
-    const totals = useMemo(() => {
-        const totalIncome = data.incomes.reduce((sum, item) => sum + item.amount, 0);
-        const salaryIncome = data.incomes.filter(i => i.description.toLowerCase().includes('salario')).reduce((sum, item) => sum + item.amount, 0);
-        const mumbucaIncome = data.incomes.filter(i => i.description.toLowerCase().includes('mumbuca')).reduce((sum, item) => sum + item.amount, 0);
-        
-        const allExpensesList = [...data.expenses, ...data.shoppingItems, ...data.avulsosItems];
-        const totalExpenses = allExpensesList.reduce((sum, item) => sum + item.amount, 0);
-        const paidExpenses = allExpensesList.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
-
-        const salarySpent = data.expenses.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0) + data.avulsosItems.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
-        const mumbucaSpent = data.shoppingItems.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
-
-        const finalBalance = salaryIncome - salarySpent;
-
-        return { totalIncome, salaryIncome, mumbucaIncome, totalExpenses, paidExpenses, salarySpent, mumbucaSpent, finalBalance };
-    }, [data]);
-    
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SummaryCard 
-                title="Entrada Salário"
-                value={totals.salaryIncome}
-                progress={totals.salaryIncome > 0 ? (totals.salarySpent / totals.salaryIncome) * 100 : 0}
-                details={`${formatCurrency(totals.salarySpent)} gastos de ${formatCurrency(totals.salaryIncome)}`}
-                color="text-success"
-                progressColor="bg-success"
-            />
-             <SummaryCard 
-                title="Entrada Mumbuca"
-                value={totals.mumbucaIncome}
-                progress={totals.mumbucaIncome > 0 ? (totals.mumbucaSpent / totals.mumbucaIncome) * 100 : 0}
-                details={`${formatCurrency(totals.mumbucaSpent)} gastos de ${formatCurrency(totals.mumbucaIncome)}`}
-                color="text-mumbuca"
-                progressColor="bg-mumbuca"
-            />
-            <SummaryCard 
-                title="Dívidas do Mês"
-                value={totals.totalExpenses}
-                progress={totals.totalExpenses > 0 ? (totals.paidExpenses / totals.totalExpenses) * 100 : 0}
-                details={`${formatCurrency(totals.paidExpenses)} pagos de ${formatCurrency(totals.totalExpenses)}`}
-                color="text-danger"
-                progressColor="bg-danger"
-            />
-            <SummaryCard 
-                title="Saldo Disponível"
-                value={totals.finalBalance}
-                details="Salário - Dívidas - Avulsos"
-                color={totals.finalBalance >= 0 ? 'text-balance' : 'text-danger'}
-            />
-        </div>
-    );
-};
-
-// --- SUMMARY CARD ---
-interface SummaryCardProps {
-    title: string;
-    value: number;
-    details: string;
-    color: string;
-    progress?: number;
-    progressColor?: string;
-}
-
-const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, details, color, progress, progressColor }) => {
-    const safeProgress = Math.min(Math.max(progress || 0, 0), 100);
-    return (
-        <div className="bg-surface p-6 rounded-2xl border border-border flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-text-light">{title}</h3>
-            <p className={`text-3xl font-bold ${color}`}>{formatCurrency(value)}</p>
-            {progress !== undefined && (
-                <div className="w-full bg-surface-light rounded-full h-2 mt-2">
-                    <div className={`${progressColor} h-2 rounded-full`} style={{ width: `${safeProgress}%` }}></div>
-                </div>
-            )}
-            <p className="text-xs text-text-lighter mt-auto pt-2">{details}</p>
-        </div>
-    );
-};
