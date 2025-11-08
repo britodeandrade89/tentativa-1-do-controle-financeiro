@@ -1,11 +1,11 @@
 const CACHE_NAME = 'financas-ai-cache-v1';
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/index.css',
-    '/index.tsx',
-    '/manifest.json',
-    '/icon.svg'
+    './',
+    './index.html',
+    './index.css',
+    './index.tsx',
+    './manifest.json',
+    './icon.svg'
 ];
 
 // Install event: precache the app shell

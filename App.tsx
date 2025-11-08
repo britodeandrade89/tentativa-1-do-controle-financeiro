@@ -43,27 +43,14 @@ export default function App() {
       togglePaid
   } = useFinancialData(user, currentDate);
 
-  // --- Auth & Service Worker Subscription ---
+  // --- Auth Subscription ---
   useEffect(() => {
-    // Subscribe to auth changes
     const authUnsubscribe = handleAuth(setUser);
+    return () => {
+      authUnsubscribe();
+    };
+  }, []);
 
-    // Register Service Worker
-    if ('serviceWorker' in navigator) {
-      // By tying registration to the component lifecycle (after the initial render),
-      // we ensure the document is in a stable state, avoiding race conditions.
-      const serviceWorkerUrl = new URL('service-worker.js', window.location.origin);
-      navigator.serviceWorker.register(serviceWorkerUrl)
-        .then(registration => {
-          console.log('Service Worker registered successfully with scope:', registration.scope);
-        })
-        .catch(error => {
-          console.error('Service Worker registration failed:', error);
-        });
-    }
-
-    return () => authUnsubscribe();
-  }, []); // Empty dependency array ensures this runs only once after mount.
 
   // --- Event Handlers ---
   const changeMonth = (direction: 'prev' | 'next') => {
