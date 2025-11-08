@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from "firebase/auth";
 import { subscribeToMonthData, saveMonthData, getMonthData, isFirebaseConfigured } from '../services/firebaseService';
@@ -43,11 +44,12 @@ export const useFinancialData = (user: User | null, currentDate: Date) => {
 
     useEffect(() => {
         if (!user) {
-            if (!isFirebaseConfigured) {
-                setMonthData(initialMonthData);
-                setSyncStatus('disconnected');
-                setIsDataLoading(false);
-            }
+            // This handles both the case where Firebase is not configured and
+            // where authentication fails (e.g., on a non-whitelisted domain), 
+            // preventing the app from getting stuck on the loading screen.
+            setMonthData(initialMonthData);
+            setSyncStatus(isFirebaseConfigured ? 'error' : 'disconnected');
+            setIsDataLoading(false);
             return;
         }
 

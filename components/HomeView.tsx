@@ -113,11 +113,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
         const paidMonthlyExpenses = data.expenses.filter(e => e.paid).reduce((sum, item) => sum + item.amount, 0);
         
         // --- SPENT LOGIC (for card details) ---
-        const allSpending = monthlyExpensesTotal + avulsosTotal + mumbucaSpent;
+        const salarySpent = monthlyExpensesTotal + avulsosTotal;
+        const allSpending = salarySpent + mumbucaSpent;
         
         // --- BALANCE & DEBT LOGIC ---
         // As per screenshot's hint: Salário - Dívidas - Avulsos
-        const finalBalance = salaryIncome - monthlyExpensesTotal - avulsosTotal;
+        const finalBalance = salaryIncome - salarySpent;
 
         // "Total a pagar" should only include unpaid debts
         const totalToPayMarcia = data.expenses
@@ -132,6 +133,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
             paidMonthlyExpenses,
             mumbucaSpent, 
             allSpending,
+            salarySpent,
             finalBalance, 
             totalToPayMarcia 
         };
@@ -160,8 +162,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ data }) => {
                  <SummaryCard 
                     title="Entrada Salário"
                     value={totals.salaryIncome}
-                    progress={(totals.salaryIncome > 0 ? ((totals.monthlyExpensesTotal + totals.avulsosTotal) / totals.salaryIncome) * 100 : 0)}
-                    details={`${formatCurrency(totals.monthlyExpensesTotal)} gastos de ${formatCurrency(totals.salaryIncome)}`}
+                    progress={(totals.salaryIncome > 0 ? (totals.salarySpent / totals.salaryIncome) * 100 : 0)}
+                    details={`${formatCurrency(totals.salarySpent)} gastos de ${formatCurrency(totals.salaryIncome)}`}
                     color="text-success"
                     progressColor="bg-success"
                 />
